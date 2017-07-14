@@ -3,3 +3,8 @@
 
 from Helpers import *
 from LogReaderBase import LogReaderBase
+from PaletteBase import PaletteBase, PaletteFileDB
+import logging
+import config
+
+logging.basicConfig( level=config.LOGLEVEL )
