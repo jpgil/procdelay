@@ -13,12 +13,8 @@ def _defaultColor(text):
     >>> p.colorize("numbers 1 2 3 12 inside, also with 0.5 decimal points")
     'numbers inside, also with decimal points'
     """
-    # Antenna Name  ### MOVE TO A SPECIFIC ALMA CLASS
-    colorized = re.sub( "(DV|DA|CM|PM)[0-9][0-9]", "ANT", text)
-
     # Any number
-    # colorized = re.sub( '-?[0-9]+\.?[0-9]*(?:[Ee]\ *-?\+?\ *[0-9]+)?', "NN", colorized)
-    colorized = re.sub( '-?[0-9]+\.?[0-9]*(?:[Ee]\ *-?\+?\ *[0-9]+)?', "", colorized)
+    colorized = re.sub( '-?[0-9]+\.?[0-9]*(?:[Ee]\ *-?\+?\ *[0-9]+)?', "", text)
 
     # Extra spaces to just 1, removing trailing ones
     colorized = re.sub( '\s+', " ", colorized).strip()
@@ -58,8 +54,10 @@ class PaletteBase:
     Traceback (most recent call last):
     ...
     ValueError: ...
+
+    # >>> p.getStatistics()
     """
-    def __init__(self):
+    def __init__(self, colorFunction=False):
         """
         Initialize internals
         """
@@ -67,6 +65,10 @@ class PaletteBase:
         # Example of item: self._colors[12] = "long text"
         self._colors = []
         self._colorFunction = _defaultColor
+
+        if colorFunction:
+            self.setColorFunction( colorFunction )
+
 
     def setColorFunction(self, func):
         self._colorFunction = func
@@ -92,6 +94,10 @@ class PaletteBase:
 
     def index(self, color):
         return self._colors.index(color)
+
+    def colorFromIndex(self, idx):
+        return self._colors[idx]
+
 
 
 class PaletteFileDB(PaletteBase):
