@@ -16,9 +16,13 @@ class LR_AlmaContainerFile(LogReaderBase):
     def __init__(self, fileName=""):
         if fileName != "":
             self._loadContainer(fileName)
+        self._size = 0
 
     def _loadContainer(self, filename):
         self.filename = filename
+
+    def len(self):
+        return self._size
 
     def next(self):
         if self.isFinished:
@@ -38,6 +42,7 @@ class LR_AlmaContainerFile(LogReaderBase):
 
         # milliseconds = int(1000*datetime.datetime( int(T[0:4]) , int(T[5:7]), int(T[8:10]), int(T[11:13]), int(T[14:16]), int(T[17:19]), int(T[20:23])*1000).timestamp())
 
+        self._size = self._size + 1
         return milliseconds, txt
 
 

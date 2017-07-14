@@ -7,7 +7,7 @@ from src import *
 from src.LR_AlmaContainerFile import LR_AlmaContainerFile
 # from src.AlmaPalette import AlmaPalette
 
-COLOR_INSTANCES_THRESHOLD = 2
+COLOR_INSTANCES_THRESHOLD = 0
 
 logging.info("Code imported")
 
@@ -60,10 +60,15 @@ for event in logReader:
     #     """
 
 
+colors = palette.getColors()
 print ("ANALYSIS")
 print ("---------")
 print ("")
-colors = palette.getColors()
+print ("LOG FILE:      %s " % sys.argv[1])
+print ("LOG SIZE:      %s " % len(logReader))
+print ("UNIQUE COLORS: %s " % len(colors))
+print ("")
+print ("COLOR DICTIONARY")
 for i in range (0, len(colors) ):
     if counting[i] > COLOR_INSTANCES_THRESHOLD:
-        print ("%s\t(%s times)\t:%s" % (i, counting[i], colors[i]) )
+        print ("COLOR_%s\t(%s times)\t:%s" % (i, counting[i], colors[i]) )
