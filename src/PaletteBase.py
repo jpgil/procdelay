@@ -5,6 +5,27 @@ This is a generic class that could be extended with the business logic.
 import doctest
 import re
 
+
+def _defaultColor(text):
+    """ Returns a stripped version of a text that can be used as color 
+
+    >>> p = PaletteBase()
+    >>> p.colorize("numbers 1 2 3 12 inside, also with 0.5 decimal points")
+    'numbers inside, also with decimal points'
+    """
+    # Antenna Name  ### MOVE TO A SPECIFIC ALMA CLASS
+    colorized = re.sub( "(DV|DA|CM|PM)[0-9][0-9]", "ANT", text)
+
+    # Any number
+    # colorized = re.sub( '-?[0-9]+\.?[0-9]*(?:[Ee]\ *-?\+?\ *[0-9]+)?', "NN", colorized)
+    colorized = re.sub( '-?[0-9]+\.?[0-9]*(?:[Ee]\ *-?\+?\ *[0-9]+)?', "", colorized)
+
+    # Extra spaces to just 1, removing trailing ones
+    colorized = re.sub( '\s+', " ", colorized).strip()
+
+    return colorized
+
+
 class PaletteBase:
     """ Base class for all palettes.
 
@@ -45,6 +66,10 @@ class PaletteBase:
 
         # Example of item: self._colors[12] = "long text"
         self._colors = []
+        self._colorFunction = _defaultColor
+
+    def setColorFunction(self, func):
+        self._colorFunction = func
 
     def addEvent(self, activity):
         """
@@ -59,24 +84,8 @@ class PaletteBase:
         else:
             return self.index(color), color
 
-    def colorize(self, text):
-        """ Returns a stripped version of a text that can be used as color 
-
-        >>> p = PaletteBase()
-        >>> p.colorize("numbers 1 2 3 12 inside, also with 0.5 decimal points")
-        'numbers inside, also with decimal points'
-        """
-        # Antenna Name  ### MOVE TO A SPECIFIC ALMA CLASS
-        colorized = re.sub( "(DV|DA|CM|PM)[0-9][0-9]", "ANT", text)
-
-        # Any number
-        # colorized = re.sub( '-?[0-9]+\.?[0-9]*(?:[Ee]\ *-?\+?\ *[0-9]+)?', "NN", colorized)
-        colorized = re.sub( '-?[0-9]+\.?[0-9]*(?:[Ee]\ *-?\+?\ *[0-9]+)?', "", colorized)
-
-        # Extra spaces to just 1, removing trailing ones
-        colorized = re.sub( '\s+', " ", colorized).strip()
-
-        return colorized
+    def colorize(self, activity):
+        return self._colorFunction(activity)
 
     def getColors(self):
         return self._colors
