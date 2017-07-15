@@ -10,7 +10,7 @@ DEST=$(dirname $0)/../../data/interim/
 echo "about to strip unseless logs from $(ls $ORIGIN/*acs* | wc -l) files"
 
 for file in $(find $ORIGIN -name *acs*); do 
-  egrep -v "(archive_delta_percent does not exist|Failed to read static data for|DAOProxy::get_field)" $file >> $DEST/$(basename $file)_STRIPPED
+  egrep -v "(archive_delta_percent does not exist|Failed to read static data for|DAOProxy::get_field)" $file > $DEST/$(basename $file)_STRIPPED
 done
 
 echo " Done. Check the contents of $DEST."

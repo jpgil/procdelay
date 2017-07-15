@@ -32,52 +32,6 @@ def paintedByAlma(text):
 
     return colorized
 
-class CaseManagerBase:
-    """ I need to document all this logic
-    """
-    def __init__(self):
-        self.history = []
-        self.uniques = {}
-        self.verbose = False
-
-    @staticmethod
-    def isStartEvent(event):
-        raise NotImplementedError
-
-    @staticmethod
-    def newCase(basedOn):
-        """Factory method.
-        It returns also an ID to be used as case identifier
-        """
-        raise NotImplementedError
-
-    def isEndEvent(self, event):
-        raise NotImplementedError
-
-    def isValidEvent(self, event):
-        """ Override if you need to filter events based on some criteria. True by default
-        """
-        return True
-
-    # Some magic here....
-    def appendActivity(self, ts, activity):
-        self.history.append( (ts, activity) )
-        if activity not in self.uniques.keys():
-            self.uniques[activity] = 1
-        else:
-            self.uniques[activity] = self.uniques[activity] + 1
-
-    def getTotalEvents(self):
-        return len(self.history)
-
-    def getUniqueColors(self):
-        return self.uniques.keys()
-
-    def finish(self):
-        # Do whatever you need to do here
-        # For example... count the delays and send to PairsDB
-        pass
-
 
 
 class CaseAntennaStartup(CaseManagerBase):
@@ -86,7 +40,7 @@ class CaseAntennaStartup(CaseManagerBase):
     def isStartEvent(event):
         return "Running the container with these arguments" in event[1]
 
-    def isEndEvent(self, event):
+    def conditionForEndEvent(self, event):
         return "getComponentNonSticky(CONTROL/Array" in event[1]
 
     @staticmethod
@@ -101,7 +55,7 @@ class CaseAntennaObserving(CaseManagerBase):
     def isStartEvent(event):
         return "Request to load 'AntInterferometryController'" in event[1]
 
-    def isEndEvent(self, event):
+    def conditionForEndEvent(self, event):
         return "Switched state of component" in event[1] and "AntInterferometryController: DESTROYING -> DEFUNCT" in event[1]
 
     @staticmethod
@@ -116,7 +70,7 @@ class CaseAntennaInArray(CaseManagerBase):
     def isStartEvent(event):
         return "ContainerServices::getComponentNonSticky(CONTROL/Array" in event[1]
 
-    def isEndEvent(self, event):
+    def conditionForEndEvent(self, event):
         return "Antenna" in event[1] and "assigned to array " in event[1]
 
     @staticmethod
@@ -131,8 +85,9 @@ class CaseRadioSetup(CaseManagerBase):
     def isStartEvent(event):
         return "Try to power on band" in event[1]
 
-    def isEndEvent(self, event):
-        return "Receiver band" in event[1] and "powered on" in event[1]
+    def conditionForEndEvent(self, event):
+        return ("Receiver band" in event[1] and "powered on" in event[1]) or \
+        "Try to power on band" in event[1]
 
     @staticmethod
     def newCase(basedOn):
