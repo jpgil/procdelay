@@ -1,7 +1,33 @@
 """ Holds the logic to split logs in cases
 .. module:: CaseManager
 
-A case is an ordered subset of a log the contains events comparables between them.
+A case is an ordered subset of a log the contains events comparables between them. There are two kind of objects:
+
+event: (object) The raw event could be a string or a complex object like JSON.  This object must be consistent across the process and
+it is used for validation purposes only.
+activity: (ts, label) A labelling of the activities from an event, with positive integer representing a timestamp. 
+Semantically, it is the result of a colouring function over the event and keeping the time of occurrence. 
+
+Any Case instance has three main stages of operations:
+
+1) Case creation: based on incoming events you need to specify 3 items here:
+
+1.a) Case start condition: all events meeting this condition triggers a new case. It is a static method, it holds no object values.
+1.b) Case end condition: all events meeting this condition triggers an end of an existing case, unless it is the very first event in the case. 
+It is a method over an instance, then you can store values in the instance to be used inside the condition (like ad-hocs substrings)
+1.c) Case ID: you can decide how to specify an ID. If you run parallel cases, the case ID becomes important to do log splitting.
+
+2) Event recollection
+
+Once a case is created a stream of (ts, activities) extracted from events are ingested one by one, following this logic:
+
+2.a) It is a valid event? This condition shall be executed outside this class in a higher level manager that delivers events to all cases.
+2.b) Activity ingestion. The full trace is stored in memory
+2.c) Stream processing engines. It could be attached one or more engines to do some stream processing over the activity and over the state of the case.
+
+3) Post processing
+
+Same engines than before, but doing a process over the finished case. This is the last step before destruction and must be called from outside.
 
 """
 import doctest
@@ -12,13 +38,18 @@ class CaseManagerBase:
     1) Detects parallel executions of cases
     2) Detects start / stop events for cases.
 
+    Basic example:
+    >>> CaseManagerBase.newCase( basedOn="sample event" )
+    ('ID', <__main__.CaseManagerBase instance at ...
     """
     def __init__(self):
         self.history = []
         self.uniques = {}
         self.verbose = False
-        # The very first event is special. If you use the same marke for start/end , then the second instance is the one that must stop this machine.
+        # The very first event is special. If you use the same marker for start/end , then the second instance is the one that must stop this machine.
         self.isFirstEvent = True
+        self._processingEngines = [engine(self) for engine in self.processingEngines()]
+        # Validate processing engines?
 
     @staticmethod
     def isStartEvent(event):
@@ -27,9 +58,11 @@ class CaseManagerBase:
     @staticmethod
     def newCase(basedOn):
         """Factory method.
-        It returns also an ID to be used as case identifier
+        It returns also an ID to be used as case identifier. 
+
+        :returns:  (string, object) -- caseID and case instance
         """
-        raise NotImplementedError
+        return "ID", CaseManagerBase()
 
     def isEndEvent(self, event):
         if self.isFirstEvent:
@@ -43,7 +76,19 @@ class CaseManagerBase:
         return True
 
     def conditionForEndEvent(self, event):
+        """ Condition based on event that must trigger the end of execution of the case.
+        You can also choose the same start condition, the first event is indeed recognized as different than any other event specifically for this case.
+
+        :returns:  bool
+        """
         raise NotImplementedError
+
+    def processingEngines(self):
+        """ List of case processing engines.
+
+        They must be inherited from CaseProcessingEngineBase
+        """
+        return []
 
     # Some magic here....
     def appendActivity(self, ts, activity):
@@ -53,6 +98,8 @@ class CaseManagerBase:
         else:
             self.uniques[activity] = self.uniques[activity] + 1
         self.isFirstEvent = False
+        for engine in self._processingEngines:
+            engine.streamProcess(ts, activity)
 
     def getTotalEvents(self):
         return len(self.history)
@@ -63,7 +110,8 @@ class CaseManagerBase:
     def finish(self):
         # Do whatever you need to do here
         # For example... count the delays and send to PairsDB
-        pass
+        for engine in self._processingEngines:
+            engine.postProcess()
 
     def stats(self):
         return {
@@ -81,6 +129,19 @@ class CaseManagerBase:
             gentleTrace = " ".join(gentle) + " ...(%s more)" % ( len(stats["TRACE"])-len(gentle) )
         return "EVENTS=%s UNIQUES=%s TRACE=%s" % (stats["TOTAL_EVENTS"], len(stats["UNIQUE_ACTIVITIES"]), gentleTrace )
 
+
+
+
+# Move elsewhere
+class CaseProcessingEngineBase:
+    def __init__(self, parent):
+        self.parent = parent
+
+    def streamProcess(self, ts, activity):
+        return
+
+    def postProcess(self):
+        return
 
 
 

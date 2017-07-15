@@ -2,9 +2,9 @@
 """
 
 from Helpers import *
-from LogReaderBase import LogReaderBase
-from CaseManagerBase import CaseManagerBase
-from PaletteBase import PaletteBase, PaletteFileDB
+from LogReaderBase import *
+from CaseManagerBase import *
+from PaletteBase import *
 import logging
 import config
 

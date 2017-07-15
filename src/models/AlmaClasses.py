@@ -1,10 +1,14 @@
-from src import *
-import re
+"""
+Classes specific for ALMA analysis of delay profiler and outliers.
+"""
 from time import *
 import logging
+import re
+from src import *
 
 
-def paintedByAlma(text):
+
+def paintedForAlmaAntennas(text):
     # Tokenize antenna Name  
     colorized = re.sub( "(DV|DA|CM|PM)[0-9][0-9]", "${ANT}", text)
 
@@ -32,9 +36,23 @@ def paintedByAlma(text):
 
     return colorized
 
+class CaseDelayDetector(CaseManagerBase):
+    """
+    """
+    @staticmethod
+    def newCase(basedOn):
+        return "ID", CaseDelayDetector()
+
+    def processingEngines(self):
+        return [DelaysDetectorEngine]
 
 
-class CaseAntennaStartup(CaseManagerBase):
+class DelaysDetectorEngine(CaseProcessingEngineBase):
+    pass
+
+
+
+class CaseAntennaStartup(CaseDelayDetector):
 
     @staticmethod
     def isStartEvent(event):
@@ -49,7 +67,7 @@ class CaseAntennaStartup(CaseManagerBase):
 
 
 
-class CaseAntennaObserving(CaseManagerBase):
+class CaseAntennaObserving(CaseDelayDetector):
 
     @staticmethod
     def isStartEvent(event):
@@ -64,7 +82,7 @@ class CaseAntennaObserving(CaseManagerBase):
 
 
 
-class CaseAntennaInArray(CaseManagerBase):
+class CaseAntennaInArray(CaseDelayDetector):
 
     @staticmethod
     def isStartEvent(event):
@@ -79,7 +97,7 @@ class CaseAntennaInArray(CaseManagerBase):
 
 
 
-class CaseRadioSetup(CaseManagerBase):
+class CaseRadioSetup(CaseDelayDetector):
 
     @staticmethod
     def isStartEvent(event):
@@ -185,5 +203,6 @@ class LR_AlmaContainerFile(LogReaderBase):
     def addOrFilter(self, filterStr):
         self.orFilters.append(filterStr)
         print ("%s added" % filterStr)
+
 
 

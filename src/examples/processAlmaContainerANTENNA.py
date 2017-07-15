@@ -5,12 +5,12 @@ Example: process ALMA logs, CONTROL/ANTENNA/cppContainer
 import sys
 import re
 from src import *
-from src.LR_AlmaContainerFile import *
+from src.models.AlmaClasses import *
 
 
 COLOR_INSTANCES_THRESHOLD = 0
 CASE_LIST = [CaseAntennaStartup, CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
-
+# CASE_LIST = [CaseRadioSetup]
 
 
 print ("ANALYSIS START")
@@ -26,7 +26,7 @@ pool = {}
 logReader = LR_AlmaContainerFile(sys.argv[1])
 
 # Palette to color the events
-palette = PaletteBase( colorFunction = paintedByAlma )
+palette = PaletteFileDB(filename='data/processed/colors-almaAntenna.pkl', colorFunction=paintedForAlmaAntennas )
 
 
 counting = {}
@@ -60,11 +60,9 @@ for event in logReader:
         # Process this last event anyway
         if case.isValidEvent(event):
             case.appendActivity( ts=event[0], activity=colorIdx )
-        logging.debug( "%s : C_%s : %s" % (idx, colorIdx, color) )
-        # Note that HERE the case should give the statistics of colors to PairsDB.
+            # logging.debug( "%s : C_%s : %s" % (idx, colorIdx, color) )
         case.finish()
 
-        # Now some gentle logging to the world.
         logging.info("case[%s] %s" % (idx, case.worldStats()))
 
         del(pool[idx])
