@@ -82,11 +82,13 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
             pairs = self.getValidPairs(cluster)
             self.log.info("For cluster freq=%s, computing delays on %s pairs" % (freq, len(pairs)))
             for a, b in pairs:
-                pass
-                # delays = self.computeDelays( a, b )
-                # self.log.debug("delays(C%s, C%s: %s" % (a, b, delays))
+                try:
+                    delays = self.computeDelays( a, b )
+                    if len(delays) > 0:
+                        self.log.debug("delays(C%s, C%s) = %s" % (a, b, delays))
+                except ValueError as e:
+                    self.log.debug("delays(C%s, C%s) discarded. ValueError: %s" % (a, b, e))
 
-        # print self.parent.history
 
 
 
@@ -94,13 +96,12 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
     def getValidPairs(self, cluster):
         pairs = []
         for i in range(0, len(cluster) - 1):
-            # self.log.debug("Comparing %s against %s" % (cluster[i], cluster[i+1:]))
             val = cluster[i]
             tail = cluster[i+1:]
             for j in range(len(tail)):
-                # Checks A B
                 a, b = val, tail[j]
                 if self.firstTimeOf[a] < self.firstTimeOf[b]:
+                    # Checks A B
                     self.log.debug("Which is first in (C%s, C%s) : (C%s, C%s) found." % (a, b, a, b))
                     pairs.append( (a, b) )
                 else:
@@ -125,10 +126,44 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
             if len(self.uniques[freq]) < 2:
                 del(self.uniques[freq])
                 self.log.debug("removing freq=%s" % freq)
+
+        # Manually removing freq == 1
+        # if 1 in self.uniques.keys():
+        #     del(self.uniques[1])
         self.log.info("Found %s clusters among %s symbols, with freqs=%s" % (len(self.uniques), len(self.lastTimeOf), self.uniques.keys()))
 
     def computeDelays( self, a, b ):
-        raise NotImplementedError
+        """
+        Rationale: 
+
+        iter over history [ (t0,a0), (t1,a1), ... ] and extract all 
+            t1-t0 
+        in all a0(x){0,}a1 such than for all x in sequence,
+            x != a0 and x != a1
+
+        we know that exist at least one pair (a,b) by construction of all (a,b) pairs. Also
+        cases like a..b..b or a..a..b must not be considered (why? how?)
+        """
+        delays = []
+        tA = -1
+        for event in self.parent.history:
+            if event[1] == a:
+                tA = event[0]
+            elif event[1] == b and tA >= 0:
+                tB = event[0]
+                delays.append( tB - tA )
+                tA = -1
+            # elif event[1] == b and tA == -1:
+            #     # This expected to fail sometimes then a,b could appear mixed, because millisecond precision.
+
+            #     # Brutte aproximation: if previous delays are ~0, 
+            #     raise ValueError("Found an ABB case, and I was expecting ABABABAB.")
+        if len(delays) == 0:
+            raise ValueError("I found no delays.")
+
+        return delays
+
+
 
     def printTopColors(self, num):
         col = []

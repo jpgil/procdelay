@@ -10,8 +10,9 @@ import logging
 
 # Parameters! Could I move eelsewhere?
 # --------
-CASE_LIST = [CaseAntennaStartup, CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
-# CASE_LIST = [CaseAntennaInArray]
+# CASE_LIST = [CaseAntennaStartup, CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
+CASE_LIST = [CaseAntennaStartup]
+# CASE_LIST = [CaseAntennaObserving]
 # CASE_LIST = [CaseAntennaObserving, CaseRadioSetup]
 
 
