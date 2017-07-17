@@ -46,10 +46,11 @@ class CaseManagerBase:
     def __init__(self):
         self.history = []
         self.uniques = {}
-        self.verbose = False
+        self.myName =  str(self.__class__).split(".")[-1]
         # The very first event is special. If you use the same marker for start/end , then the second instance is the one that must stop this machine.
         self.isFirstEvent = True
         self._processingEngines = self.processingEngines()
+        self.log = logging.getLogger( self.myName )
         # Validate processing engines?
 
     @staticmethod
@@ -144,6 +145,7 @@ class CaseProcessingEngineBase:
     def __init__(self, parent):
         self.parent = parent
         self.myName =  str(self.__class__).split(".")[-1]
+        self.log = logging.getLogger( "%s.%s" % (self.parent.myName, self.myName) )
 
     def streamProcess(self, ts, activity):
         return
@@ -163,6 +165,8 @@ class CasesPool:
     def __init__(self, cases_list):
         self.pool = {}
         self.cases_list = cases_list
+        self.myName =  str(self.__class__).split(".")[-1]
+        self.log = logging.getLogger( self.myName )
 
     def removeEndedCases(self, event, ts, activity):
         what2kill = []
@@ -176,10 +180,10 @@ class CasesPool:
             # Add last event just in case.
             self.appendToCase(event, ts, activity, case )
             case.finish()
-            logging.info("case[%s] %s" % (idx, case.worldStats()))
+            self.log.info("%s[%s] %s" % (case.myName, idx, case.worldStats()))
 
             del(self.pool[idx])
-            logging.debug("case[%s] killed at %s because %s" % (idx, event[0], event[1]))
+            self.log.debug("case[%s] killed at %s because %s" % (idx, event[0], event[1]))
 
     def appendToCase(self, event, ts, activity, case):
         if case.isValidEvent(event):
@@ -193,12 +197,12 @@ class CasesPool:
 
                 # Is case already active? Then fail
                 if caseId in self.pool.keys():
-                    logging.info("case[%s] %s" % (caseId, self.pool[caseId].worldStats()))
+                    caseInstance.log.info("case[%s] %s" % (caseId, self.pool[caseId].worldStats()))
                     raise ValueError("[%s] Error in your logic, buddy. There is already an active case. Check above and belowe offending event:\n%s" % (caseId, event) )
 
                 self.pool[caseId] = caseInstance
                 # logging.info("case[%s] created" % caseId)
-                logging.debug("case[%s] created at %s because %s" % (caseId, event[0], event[1]))
+                caseInstance.log.debug("[%s] created at %s because %s" % (caseId, event[0], event[1]))
 
     def appendActivity(self, event, ts, activity):
         for idx, case in self.pool.iteritems():
@@ -208,8 +212,8 @@ class CasesPool:
     def removeAfterLastEvent(self):
         for idx in self.pool.keys():
             self.pool[idx].finish()
-            logging.info("case[%s] %s" % (idx, self.pool[idx].worldStats()))
-            logging.info("case[%s] KILL because no more events are available" % idx)
+            self.log.info("%s[%s] %s" % (self.pool[idx].myName, idx, self.pool[idx].worldStats()))
+            self.log.info("case[%s] KILL because no more events are available" % idx)
             del(self.pool[idx])
 
 

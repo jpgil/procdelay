@@ -52,21 +52,66 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
     def __init__(self, parent):
         CaseProcessingEngineBase.__init__(self, parent)
         self.count = {}
-        self.timeOf = {}
+        self.lastTimeOf = {}
+        self.firstTimeOf = {}
 
     def streamProcess(self, ts, activity):
 
-        self.timeOf[activity] = ts
-        try:
+        # Remember when activity happens last time
+        self.lastTimeOf[activity] = ts
+
+        # Store the order of appearance. "AB" is different than "BA" if "A" appeared first.
+        if activity not in self.firstTimeOf.keys():
+            self.firstTimeOf[activity] = ts
+
+        # Count activities
+        if activity in self.count.keys():
             self.count[activity] = self.count[activity] + 1
-        except:
+        else:
             self.count[activity] = 1
-        return
+
+
 
     def postProcess(self):
-        self.generateComparableSet()
+        self.clusterizeOnFreq()
+        for freq, cluster in self.uniques.iteritems():
+            self.log.debug("Computing delays on %s elements of freq=%s" % (len(cluster), freq))
+            self.log.debug("cluster = %s" % cluster)
 
-    def generateComparableSet(self):
+            # Do the combinatorial analysis. (Scary!)
+            pairs = self.getValidPairs(cluster)
+            self.log.info("For cluster freq=%s, computing delays on %s pairs" % (freq, len(pairs)))
+            for a, b in pairs:
+                pass
+                # delays = self.computeDelays( a, b )
+                # self.log.debug("delays(C%s, C%s: %s" % (a, b, delays))
+
+        # print self.parent.history
+
+
+
+    # By construction, the values in cluster has same frequency, necessary condition to be comparable.
+    def getValidPairs(self, cluster):
+        pairs = []
+        for i in range(0, len(cluster) - 1):
+            # self.log.debug("Comparing %s against %s" % (cluster[i], cluster[i+1:]))
+            val = cluster[i]
+            tail = cluster[i+1:]
+            for j in range(len(tail)):
+                # Checks A B
+                a, b = val, tail[j]
+                if self.firstTimeOf[a] < self.firstTimeOf[b]:
+                    self.log.debug("Which is first in (C%s, C%s) : (C%s, C%s) found." % (a, b, a, b))
+                    pairs.append( (a, b) )
+                else:
+                    # Now checks B A
+                    self.log.debug("Which is first in (C%s, C%s) : (C%s, C%s) found." % (a, b, b, a))
+                    pairs.append( (b, a) )
+        return pairs
+
+
+
+    def clusterizeOnFreq(self):
         # Clusterize on same frequencies 
         self.uniques = {}
         for activity, freq in self.count.iteritems():
@@ -74,13 +119,16 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
                 self.uniques[freq] = [ activity ]
             else:
                 self.uniques[freq].append(activity)
-            # print activity, freq
+
         # Remove freq < 2
         for freq in self.uniques.keys():
             if len(self.uniques[freq]) < 2:
                 del(self.uniques[freq])
-                logging.debug("removing freq=%s" % freq)
-        # print self.uniques
+                self.log.debug("removing freq=%s" % freq)
+        self.log.info("Found %s clusters among %s symbols, with freqs=%s" % (len(self.uniques), len(self.lastTimeOf), self.uniques.keys()))
+
+    def computeDelays( self, a, b ):
+        raise NotImplementedError
 
     def printTopColors(self, num):
         col = []
@@ -129,9 +177,13 @@ class CaseAntennaInArray(CaseDelayDetector):
 
     @staticmethod
     def isStartEvent(event):
+        # logging.debug(event)
         return "ContainerServices::getComponentNonSticky(CONTROL/Array" in event[1]
 
     def conditionForEndEvent(self, event):
+        # logging.debug(event)
+        # if "Antenna" in event[1] and "assigned to array " in event[1]:
+        #     raise ValueError()
         return "Antenna" in event[1] and "assigned to array " in event[1]
 
     @staticmethod
