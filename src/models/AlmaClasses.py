@@ -44,11 +44,54 @@ class CaseDelayDetector(CaseManagerBase):
         return "ID", CaseDelayDetector()
 
     def processingEngines(self):
-        return [DelaysDetectorEngine]
+        return [ DelaysDetectorEngine(self) ]
 
 
+# Move elsewhere than ALMA.
 class DelaysDetectorEngine(CaseProcessingEngineBase):
-    pass
+    def __init__(self, parent):
+        CaseProcessingEngineBase.__init__(self, parent)
+        self.count = {}
+        self.timeOf = {}
+
+    def streamProcess(self, ts, activity):
+
+        self.timeOf[activity] = ts
+        try:
+            self.count[activity] = self.count[activity] + 1
+        except:
+            self.count[activity] = 1
+        return
+
+    def postProcess(self):
+        self.generateComparableSet()
+
+    def generateComparableSet(self):
+        # Clusterize on same frequencies 
+        self.uniques = {}
+        for activity, freq in self.count.iteritems():
+            if freq not in self.uniques.keys():
+                self.uniques[freq] = [ activity ]
+            else:
+                self.uniques[freq].append(activity)
+            # print activity, freq
+        # Remove freq < 2
+        for freq in self.uniques.keys():
+            if len(self.uniques[freq]) < 2:
+                del(self.uniques[freq])
+                logging.debug("removing freq=%s" % freq)
+        # print self.uniques
+
+    def printTopColors(self, num):
+        col = []
+        for w in sorted(self.count, key=self.count.get, reverse=True)[:num]:
+          col.append( "C%s(%s)"% (w, self.count[w]))
+        return " ".join(col)
+
+
+    def worldStats(self):
+        return "%s: Clusters=%s TOP_COLORS=%s " % (self.myName, len(self.uniques), self.printTopColors(3) )
+
 
 
 
