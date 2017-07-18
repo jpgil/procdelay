@@ -1,3 +1,4 @@
 import logging
 
-LOGLEVEL = logging.DEBUG
+LOGLEVEL = logging.INFO
+FILEPATH_DB = "data/processed"

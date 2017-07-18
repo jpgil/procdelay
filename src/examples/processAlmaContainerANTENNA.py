@@ -11,8 +11,8 @@ import logging
 # Parameters! Could I move eelsewhere?
 # --------
 # CASE_LIST = [CaseAntennaStartup, CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
-CASE_LIST = [CaseAntennaStartup]
-# CASE_LIST = [CaseAntennaObserving]
+CASE_LIST = [CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
+# CASE_LIST = [CaseRadioSetup]
 # CASE_LIST = [CaseAntennaObserving, CaseRadioSetup]
 
 
@@ -20,7 +20,7 @@ CASE_LIST = [CaseAntennaStartup]
 logReader = LR_AlmaContainerFile(sys.argv[1])
 
 # Palette to color the events
-palette = PaletteFileDB(filename='data/processed/colors-almaAntenna.pkl', colorFunction=paintedForAlmaAntennas )
+palette = PaletteFileDB(filename='%s/colors-almaAntenna.pkl' % config.FILEPATH_DB, colorFunction=paintedForAlmaAntennas )
 
 
 # This sample is enough to trigger a CaseAntennaInArray complete case.

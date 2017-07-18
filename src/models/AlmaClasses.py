@@ -44,16 +44,18 @@ class CaseDelayDetector(CaseManagerBase):
         return "ID", CaseDelayDetector()
 
     def processingEngines(self):
-        return [ DelaysDetectorEngine(self) ]
+        return [ DelaysDetectorEngine(parent=self, path=config.FILEPATH_DB+"/delays") ]
 
 
 # Move elsewhere than ALMA.
+import json
 class DelaysDetectorEngine(CaseProcessingEngineBase):
-    def __init__(self, parent):
+    def __init__(self, parent, path):
         CaseProcessingEngineBase.__init__(self, parent)
         self.count = {}
         self.lastTimeOf = {}
         self.firstTimeOf = {}
+        self.path = path
 
     def streamProcess(self, ts, activity):
 
@@ -74,21 +76,87 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
 
     def postProcess(self):
         self.clusterizeOnFreq()
+        total_pairs, total_delays = 0, 0
+
         for freq, cluster in self.uniques.iteritems():
             self.log.debug("Computing delays on %s elements of freq=%s" % (len(cluster), freq))
             self.log.debug("cluster = %s" % cluster)
 
             # Do the combinatorial analysis. (Scary!)
             pairs = self.getValidPairs(cluster)
-            self.log.info("For cluster freq=%s, computing delays on %s pairs" % (freq, len(pairs)))
+            self.log.debug("For cluster freq=%s, computing delays on %s pairs" % (freq, len(pairs)))
+            total_pairs = total_pairs + len(pairs)
             for a, b in pairs:
-                try:
-                    delays = self.computeDelays( a, b )
-                    if len(delays) > 0:
+                if not self.loadDelays(a, b, self.parent.history[0][0]):
+                    try:
+                        delays = self.computeDelays( a, b )
+                        total_delays = total_delays + len(delays)
                         self.log.debug("delays(C%s, C%s) = %s" % (a, b, delays))
-                except ValueError as e:
-                    self.log.debug("delays(C%s, C%s) discarded. ValueError: %s" % (a, b, e))
+                        self.saveDelays(a, b,  self.parent.history[0][0], delays)
+                        self.log.debug("(C%s, C%s) stored in DB" %(a, b) )
+                    except ValueError as e:
+                        self.log.debug("delays(C%s, C%s) discarded. ValueError: %s" % (a, b, e))
+                else:
+                    total_delays = total_delays + len(self.loadedDelays[str(self.parent.history[0][0])])
+                    self.log.debug("(C%s, C%s) already computed. Not counting delays again." %(a, b) )
+        self.log.info("Found %s total pairs with %s combined delays" % (total_pairs, total_delays))
 
+    def saveDelays(self, a, b, ts, delays):
+        # self.loadedDelays.append( { 'timestamp': ts, 'delays': delays } )
+        self.loadedDelays[ts] = delays
+        self.log.debug( self.loadedDelays )
+        with open(self.delayFilename(a, b), 'w') as outfile:
+            json.dump(self.loadedDelays, outfile)
+
+        combinedData = []
+        for t, d in self.loadedDelays.iteritems():
+            combinedData = combinedData + d
+        with open(self.delayFilenameCombined(a, b), 'w') as outfile:
+            json.dump(combinedData, outfile)
+
+        # raise NotImplementedError
+        # Remove just in case
+        del(self.loadedDelays)
+
+
+    def loadDelays(self, a, b, ts):
+        self.loadedDelays = {}
+        try:
+            with open( self.delayFilename(a, b) ) as json_data:
+                self.loadedDelays = json.load(json_data)
+            try:
+                self.log.debug("FOUND in DB! %s" % self.loadedDelays[str(ts)])
+                return True
+            except:
+                self.log.debug("Not found in DB %s agains %s" % (ts, self.loadedDelays.keys()))
+                return False
+            # return ts in self.loadedDelays.keys()
+
+            # found = False
+            # for d in self.loadedDelays:
+            #     if not found and d['timestamp'] == ts:
+            #         found = True
+            #     elif found and d['timestamp'] == ts:
+            #         raise ValueError("Hum... timestamp %s exists twice. Why?" % ts)
+
+            return found
+
+        except IOError as e:
+
+            if "No such file or directory" in e:
+                self.log.debug("File %s don't exists. Good, continue." % self.delayFilename(a, b))
+                return False
+            else:
+                # Hey! Unhandled error
+                raise IOError(e)
+
+        raise ValueError("Why here?")
+
+    def delayFilename(self, a, b):
+        return "%s/timestamp/%s-%s-%s.json" % (self.path, self.parent.myName, a, b) 
+
+    def delayFilenameCombined(self, a, b):
+        return "%s/%s-ALL-%s-%s.json" % (self.path, self.parent.myName, a, b) 
 
 
 
