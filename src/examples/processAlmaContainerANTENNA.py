@@ -12,8 +12,8 @@ import logging
 # --------
 # CASE_LIST = [CaseAntennaStartup, CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
 # CASE_LIST = [CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
-CASE_LIST = [CaseRadioSetup]
-# CASE_LIST = [CaseAntennaObserving, CaseRadioSetup]
+# CASE_LIST = [CaseRadioSetup]
+CASE_LIST = [CaseAntennaObserving]
 
 
 # Specialized reader

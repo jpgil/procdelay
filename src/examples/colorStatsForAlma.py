@@ -6,7 +6,7 @@ from src import *
 from src.models.AlmaClasses import *
 
 
-THRESHOLD = 0.2
+THRESHOLD = 0.05
 
 for case in [ "CaseAntennaInArray", "CaseRadioSetup", "CaseAntennaObserving" ]:
 
@@ -24,16 +24,25 @@ for case in [ "CaseAntennaInArray", "CaseRadioSetup", "CaseAntennaObserving" ]:
     print "Total Pairs       \t:", db.total_pairs()
 
     instances_per_pair = db.instances_per_pair()
+    num_delays = db.delays_per_pair()
 
-    instances_filtered = []
-    for color, count in instances_per_pair:
-        if float(count)/float(total) >= THRESHOLD:
-            instances_filtered.append( (color, count) )
-            # print "%s = %s instances (%s%%)" % (color, count, 100 * count/total )
+    # instances_filtered = []
+    result = []
+    for pair, instances in instances_per_pair:
+        if float(instances)/float(total) >= THRESHOLD:
+            # instances_filtered.append( (pair, count) )
+            result.append( (pair, instances, 100 * instances/total, num_delays[pair]) )
 
-    print "Instances per Pair (%s ommited because they appears in less than %s%% of the cases)" % ( len(instances_per_pair)-len(instances_filtered) , THRESHOLD*100 )
-    for color, count in instances_filtered:
-        print "%s = %s instances (%s%%)" % (color, count, 100 * count/total )
+    # By instances
+    # result = sorted(result, key=lambda r: (r[1], r[3], r[0]), reverse=True )
+
+    # By delays
+    result = sorted(result, key=lambda r: (r[3], r[1], r[0]), reverse=True )
+
+    print "Instances per Pair (Showing %s, ommited=%s because %s%% > %% cases)" % ( len(result), len(instances_per_pair)-len(result) , THRESHOLD*100 )
+    for r in result:
+        print "%s = %s cases (%s%%) with %s delays in total" % r
+
 
     print("=====================")
 # result.append(("Instances per Case", db.instances_per_case()[:20]))

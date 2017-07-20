@@ -295,6 +295,7 @@ class DelaysFileDB:
         self.caseName = caseName
         self._pairs = None
         self._instances_per_pair = None
+        self._delays_per_pair = None
 
     def delayFilename(self, a, b):
         return "%s/timestamp/%s-%s-%s.json" % (self.path, self.caseName, a, b) 
@@ -310,8 +311,16 @@ class DelaysFileDB:
         raise NotImplementedError
     def exists_pair(self, a, b):
         raise NotImplementedError
+        
     def getDelays(self, a, b, ts=None):
-        raise NotImplementedError
+        pair = self.getPair(a, b)
+        if ts is None:
+            delays = []
+            for ts, this_delays in pair.iteritems():
+                delays = delays + this_delays
+            return delays
+        else:
+            raise NotImplementedError
 
     def getPair(self, a, b):
         try:
@@ -352,24 +361,35 @@ class DelaysFileDB:
         self._parse_instances_per_pair()
         return [ ( pair, count ) for pair, count in self._instances_per_pair.iteritems() ]
 
-        raise NotImplementedError
+    def delays_per_pair(self):
+        self._parse_instances_per_pair()
+        return self._delays_per_pair
 
     def _parse_directory_structure(self):
         if self._pairs is None:
             filenames = glob.glob("%s/timestamp/%s-[0-9]*" % (self.path, self.caseName))
-            self._pairs = [ ( f.split('-')[-2].split("-")[0] ,f.split('-')[-1].split(".")[0]) for f in filenames ]
+            self._pairs = []
+            for f in filenames:
+                a = int(f.split('-')[-2].split("-")[0])
+                b = int(f.split('-')[-1].split(".")[0])
+                self._pairs.append( (a, b) )
             self.log.debug( "Found these pairs for %s: %s" % (self.caseName, self._pairs) )
 
     def _parse_instances_per_pair(self):
         if self._instances_per_pair is None:
             self._instances_per_pair = {}
+            self._delays_per_pair = {}
             _cases = {}
             for (a,b) in self._pairs:
                 instances = self.getPair(a, b)
+                t_delays = 0
                 self.log.debug('(%s, %s): Found %s cases' % (a, b, len(instances)) )
                 for ts, delays in instances.iteritems():
-                    self._instances_per_pair[ ( int(a), int(b)) ] = len(instances)
+                    self._instances_per_pair[ (a, b) ] = len(instances)
                     _cases[ int(ts) ] = True
+                    t_delays = t_delays + len(delays)
+                self._delays_per_pair[ (a, b) ] = t_delays
+                self.log.debug("(%s, %s): Found %s delays in total" % (a, b, t_delays) )
             self._cases = _cases.keys()
 
             self.log.debug("Found cases: %s " % (self._cases))
