@@ -142,7 +142,7 @@ class CaseManagerBase:
 
 # Move elsewhere
 class CaseProcessingEngineBase:
-    def __init__(self, parent):
+    def __init__(self, parent=None):
         self.parent = parent
         self.myName =  str(self.__class__).split(".")[-1]
         self.log = logging.getLogger( "%s.%s" % (self.parent.myName, self.myName) )

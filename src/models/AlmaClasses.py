@@ -44,18 +44,28 @@ class CaseDelayDetector(CaseManagerBase):
         return "ID", CaseDelayDetector()
 
     def processingEngines(self):
-        return [ DelaysDetectorEngine(parent=self, path=config.FILEPATH_DB+"/delays") ]
+        # return [ DelaysDetectorEngine(parent=self, path=config.FILEPATH_DB+"/delays") ]
+        return [ DelaysDetectorEngine(
+            parent=self, 
+            db=DelaysFileDB( 
+                caseName=self.myName, 
+                path=config.FILEPATH_DB+"/delays") 
+            ) 
+        ]
 
 
 # Move elsewhere than ALMA.
-import json
 class DelaysDetectorEngine(CaseProcessingEngineBase):
-    def __init__(self, parent, path):
+
+    # TODO: update with self.db
+    # def __init__(self, parent, path):
+    def __init__(self, parent=None, db=None):
         CaseProcessingEngineBase.__init__(self, parent)
+        self.db = db
         self.count = {}
         self.lastTimeOf = {}
         self.firstTimeOf = {}
-        self.path = path
+        self.path = self.db.path
 
     def streamProcess(self, ts, activity):
 
@@ -75,32 +85,46 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
 
 
     def postProcess(self):
-        self.clusterizeOnFreq()
-        total_pairs, total_delays = 0, 0
+        # self.db.initialize()
 
+        self.clusterizeOnFreq()
+        total_delays = 0
+        pairs = []
         for freq, cluster in self.uniques.iteritems():
-            self.log.debug("Computing delays on %s elements of freq=%s" % (len(cluster), freq))
-            self.log.debug("cluster = %s" % cluster)
+            self.log.debug("Computing delays on %s elements of freq=%s. cluster = %s." % (len(cluster), freq, cluster))
 
             # Do the combinatorial analysis. (Scary!)
-            pairs = self.getValidPairs(cluster)
-            self.log.debug("For cluster freq=%s, computing delays on %s pairs" % (freq, len(pairs)))
-            total_pairs = total_pairs + len(pairs)
-            for a, b in pairs:
-                if not self.loadDelays(a, b, self.parent.history[0][0]):
-                    try:
-                        delays = self.computeDelays( a, b )
-                        total_delays = total_delays + len(delays)
-                        self.log.debug("delays(C%s, C%s) = %s" % (a, b, delays))
-                        self.saveDelays(a, b,  self.parent.history[0][0], delays)
-                        self.log.debug("(C%s, C%s) stored in DB" %(a, b) )
-                    except ValueError as e:
-                        self.log.debug("delays(C%s, C%s) discarded. ValueError: %s" % (a, b, e))
-                else:
-                    total_delays = total_delays + len(self.loadedDelays[str(self.parent.history[0][0])])
-                    self.log.debug("(C%s, C%s) already computed. Not counting delays again." %(a, b) )
-        self.log.info("Found %s total pairs with %s combined delays" % (total_pairs, total_delays))
+            pairs_for_freq = self.getValidPairs(cluster)
+            pairs = pairs + pairs_for_freq
+            self.log.debug("For cluster freq=%s, I found %s pairs" % (freq, len(pairs_for_freq)))
 
+        for a, b in pairs:
+            case_timestamp = self.parent.history[0][0]
+
+            # countFromDB = self.db.count(a, b, case_timestamp)
+            # if countFromDB == 0:
+            if not self.loadDelays(a, b, case_timestamp):
+                try:
+                    delays = self.computeDelays( a, b )
+                    self.log.debug("delays(C%s, C%s) = %s" % (a, b, delays))
+
+                    self.saveDelays(a, b,  case_timestamp, delays)
+                    # self.db.add(a, b, case_timestamp, delays)
+                    self.log.debug("(C%s, C%s) stored in DB" %(a, b) )
+
+                    total_delays = total_delays + len(delays)
+                except ValueError as e:
+                    self.log.debug("delays(C%s, C%s) discarded. ValueError: %s" % (a, b, e))
+            else:
+                # total_delays = total_delays + countFromDB
+                total_delays = total_delays + len(self.loadedDelays[str(case_timestamp)])
+                self.log.debug("(C%s, C%s) already computed. Not counting delays again." %(a, b) )
+
+        self.log.info("Found %s total pairs with %s combined delays" % (len(pairs) , total_delays))
+
+        # self.db.finalize()
+
+    # TODO: remove from here
     def saveDelays(self, a, b, ts, delays):
         # self.loadedDelays.append( { 'timestamp': ts, 'delays': delays } )
         self.loadedDelays[ts] = delays
@@ -119,6 +143,7 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
         del(self.loadedDelays)
 
 
+    # TODO: remove from here
     def loadDelays(self, a, b, ts):
         self.loadedDelays = {}
         try:
@@ -152,11 +177,15 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
 
         raise ValueError("Why here?")
 
+    # TODO: remove from here
     def delayFilename(self, a, b):
-        return "%s/timestamp/%s-%s-%s.json" % (self.path, self.parent.myName, a, b) 
+        return self.db.delayFilename(a, b)
+        # return "%s/timestamp/%s-%s-%s.json" % (self.path, self.parent.myName, a, b) 
 
+    # TODO: remove from here
     def delayFilenameCombined(self, a, b):
-        return "%s/%s-ALL-%s-%s.json" % (self.path, self.parent.myName, a, b) 
+        return self.db.delayFilenameCombined(a, b)
+        # return "%s/%s-ALL-%s-%s.json" % (self.path, self.parent.myName, a, b) 
 
 
 
@@ -204,17 +233,29 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
         """
         Rationale: 
 
-        iter over history [ (t0,a0), (t1,a1), ... ] and extract all 
-            t1-t0 
-        in all a0(x){0,}a1 such than for all x in sequence,
-            x != a0 and x != a1
+        Given a pair (Ta, Ya) and (Tb, Yb) with Ya != Yb, both appearing in a sequence 
+            S=( (t0,y0), (t1,y1), ... , (tN,yN) ), 
 
-        we know that exist at least one pair (a,b) by construction of all (a,b) pairs. Also
-        cases like a..b..b or a..a..b must not be considered (why? how?)
+        construct the sequence of delays 
+            D(Ya, Yb) = ( d0, d1, ..., dQ )
+
+        where 
+
+        di = tk-tj for all j, k <= N such that there is a subsequence on S defined by
+            ( (tj, yj), (t0, x0), ..., (tM, xM), (tk, yk) ) 
+
+        with
+            yj = Ya,  yk = Yb
+            xi != Ya, xi != Yb 
+
+
+        we know that exist at least one pair (a,b) by construction of all (a,b) pairs. Note that delays over 
+        (..a..b..b..) or (..a..a..b..) considers only the nearest (a,b) given the last restriction  
         """
+        S = self.parent.history
         delays = []
         tA = -1
-        for event in self.parent.history:
+        for event in S:
             if event[1] == a:
                 tA = event[0]
             elif event[1] == b and tA >= 0:
@@ -242,6 +283,104 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
 
     def worldStats(self):
         return "%s: Clusters=%s TOP_COLORS=%s " % (self.myName, len(self.uniques), self.printTopColors(3) )
+
+
+
+import json
+import glob
+class DelaysFileDB:
+    def __init__(self, caseName, path):
+        self.log = logging.getLogger( "%s" % ( str(self.__class__) ) )
+        self.path = path
+        self.caseName = caseName
+        self._pairs = None
+        self._instances_per_pair = None
+
+    def delayFilename(self, a, b):
+        return "%s/timestamp/%s-%s-%s.json" % (self.path, self.caseName, a, b) 
+
+    def delayFilenameCombined(self, a, b):
+        return "%s/%s-ALL-%s-%s.json" % (self.path, self.caseName, a, b) 
+
+    def initialize(self):
+        pass
+    def finalize(self):
+        pass
+    def exists_timestamp(self, a, b, ts):
+        raise NotImplementedError
+    def exists_pair(self, a, b):
+        raise NotImplementedError
+    def getDelays(self, a, b, ts=None):
+        raise NotImplementedError
+
+    def getPair(self, a, b):
+        try:
+            with open( self.delayFilename(a, b) ) as json_data:
+                return json.load(json_data)
+
+        except IOError as e:
+
+            if "No such file or directory" in e:
+                self.log.debug("File %s don't exists. Good, continue." % self.delayFilename(a, b))
+                return {}
+            else:
+                # Hey! Unhandled error
+                raise IOError(e)
+
+        raise ValueError("Why here?")        
+
+
+    def unique_colors(self):
+        self._parse_directory_structure()
+        u = {}
+        for (a,b) in self._pairs:
+            u[ int(a) ] = True
+            u[ int(b) ] = True
+        un = u.keys()
+        un.sort()
+        return un
+
+    def total_pairs(self):
+        self._parse_directory_structure()
+        return len(self._pairs)
+
+    def total_cases(self):
+        self._parse_instances_per_pair()
+        return len(self._cases)
+
+    def instances_per_pair(self):
+        self._parse_instances_per_pair()
+        return [ ( pair, count ) for pair, count in self._instances_per_pair.iteritems() ]
+
+        raise NotImplementedError
+
+    def _parse_directory_structure(self):
+        if self._pairs is None:
+            filenames = glob.glob("%s/timestamp/%s-[0-9]*" % (self.path, self.caseName))
+            self._pairs = [ ( f.split('-')[-2].split("-")[0] ,f.split('-')[-1].split(".")[0]) for f in filenames ]
+            self.log.debug( "Found these pairs for %s: %s" % (self.caseName, self._pairs) )
+
+    def _parse_instances_per_pair(self):
+        if self._instances_per_pair is None:
+            self._instances_per_pair = {}
+            _cases = {}
+            for (a,b) in self._pairs:
+                instances = self.getPair(a, b)
+                self.log.debug('(%s, %s): Found %s cases' % (a, b, len(instances)) )
+                for ts, delays in instances.iteritems():
+                    self._instances_per_pair[ ( int(a), int(b)) ] = len(instances)
+                    _cases[ int(ts) ] = True
+            self._cases = _cases.keys()
+
+            self.log.debug("Found cases: %s " % (self._cases))
+            # self.log.debug( self._instances_per_pair[ (a, b) ] )
+
+
+
+
+
+
+
 
 
 
