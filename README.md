@@ -4,23 +4,25 @@ procdelays
 
 Use Python 2.7.10
 
-:::bash
+```bash
 conda install python=2.7.10
+```
 
-Tu run the code use the following (until I learn the magic of virtualenvs)
+To run the code use the following (until I learn the magic of virtualenvs)
 
-:::bash
+```bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)/
 python src/examples/processAlmaConAccJava.py data/interim/DV01-toy.txt
 python src/examples/processAlmaConAccJava.py data/raw/ANTENNA/dv02-acsStartContainer_cppContainer_2017-07-12_16.28.50.242
+```
 
 Notebooks
 ------------
 
-:::bash
+```bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 jupyter-notebook --notebook-dir=notebooks
-
+```
 
 Project Organization
 ------------
