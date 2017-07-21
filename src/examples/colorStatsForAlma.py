@@ -8,7 +8,8 @@ from src.models.AlmaClasses import *
 
 THRESHOLD = 0.05
 
-for case in [ "CaseAntennaInArray", "CaseRadioSetup", "CaseAntennaObserving" ]:
+# for case in [ "CaseAntennaInArray", "CaseRadioSetup", "CaseAntennaObserving" ]:
+for case in [ "CaseAntennaInArray"]:
 
     db = DelaysFileDB( caseName=case, path=config.FILEPATH_DB+"/delays")  
     # db = DelaysFileDB( caseName="CaseRadioSetup", path=config.FILEPATH_DB+"/delays")  
@@ -34,10 +35,10 @@ for case in [ "CaseAntennaInArray", "CaseRadioSetup", "CaseAntennaObserving" ]:
             result.append( (pair, instances, 100 * instances/total, num_delays[pair]) )
 
     # By instances
-    # result = sorted(result, key=lambda r: (r[1], r[3], r[0]), reverse=True )
+    result = sorted(result, key=lambda r: (r[1], r[3], r[0]), reverse=True )
 
     # By delays
-    result = sorted(result, key=lambda r: (r[3], r[1], r[0]), reverse=True )
+    # result = sorted(result, key=lambda r: (r[3], r[1], r[0]), reverse=True )
 
     print "Instances per Pair (Showing %s, ommited=%s because %s%% > %% cases)" % ( len(result), len(instances_per_pair)-len(result) , THRESHOLD*100 )
     for r in result:

@@ -563,3 +563,22 @@ class LR_AlmaContainerFile(LogReaderBase):
 
 
 
+
+
+# MOVE ALL THIS SECTION elsewhere
+from pandas import Series
+def minmax_rank_based( values, sensitivity ):
+    """ Give range to check outliers
+
+    minmax_rank_based( [1, 2, 6, 4, ...], SENSITIVITY )
+    (1, 17)
+    """
+    # Order by rank on number of instances
+    value_counts = Series(delays).value_counts()
+    # Cumulative sum
+    cumsum = value_counts.cumsum()
+    # Extract the subset of values that appears, individually, SENSITIVITY*100 % of time
+    typicalValues = cumsum[ cumsum <= sensitivity * value_counts.sum() ]
+    # Range obtained
+    return min(typicalValues.index), max(typicalValues.index)
+

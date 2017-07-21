@@ -11,9 +11,9 @@ import logging
 # Parameters! Could I move eelsewhere?
 # --------
 # CASE_LIST = [CaseAntennaStartup, CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
-# CASE_LIST = [CaseAntennaObserving, CaseAntennaInArray, CaseRadioSetup]
+CASE_LIST = [CaseAntennaInArray, CaseRadioSetup]
 # CASE_LIST = [CaseRadioSetup]
-CASE_LIST = [CaseAntennaObserving]
+# CASE_LIST = [CaseAntennaObserving]
 
 
 # Specialized reader
