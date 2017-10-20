@@ -45,13 +45,43 @@ class CaseDelayDetector(CaseManagerBase):
 
     def processingEngines(self):
         # return [ DelaysDetectorEngine(parent=self, path=config.FILEPATH_DB+"/delays") ]
-        return [ DelaysDetectorEngine(
-            parent=self, 
-            db=DelaysFileDB( 
-                caseName=self.myName, 
-                path=config.FILEPATH_DB+"/delays") 
-            ) 
+        return [ 
+            DelaysDetectorEngine(
+                parent=self, 
+                db=DelaysFileDB( 
+                    caseName=self.myName, 
+                    path=config.FILEPATH_DB+"/delays"
+                )
+            ) ,
+            TraceStoreEngine(
+                parent=self,
+                db=TraceFileDB( 
+                    caseName=self.myName, 
+                    path=config.FILEPATH_DB+"/traces"
+                )
+            )
         ]
+
+
+
+# Move elsewhere than ALMA.
+class TraceStoreEngine(CaseProcessingEngineBase):
+    def __init__(self, parent=None, db=None):
+        CaseProcessingEngineBase.__init__(self, parent)
+        self.db = db
+
+    def streamProcess(self, ts, activity):
+        pass
+
+    def postProcess(self):
+        trace = [ a[1] for a in self.parent.history ]
+        self.log.info("Trace: %s" % trace[:50])
+        case_timestamp = self.parent.history[0][0]
+
+        self.log.debug("Saving to DB")
+        self.db.saveTrace( case_timestamp, trace )
+
+
 
 
 # Move elsewhere than ALMA.
@@ -285,9 +315,64 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
         return "%s: Clusters=%s TOP_COLORS=%s " % (self.myName, len(self.uniques), self.printTopColors(3) )
 
 
-
+# Move elsewhere
 import json
 import glob
+
+
+class TraceFileDB:
+    def __init__(self, caseName, path):
+        self.log = logging.getLogger( "%s" % ( str(self.__class__) ) )
+        self.path = path
+        self.caseName = caseName
+        self._pair = ''
+
+    def traceFilename(self):
+        return "%s/traces-%s-%s-%s.json" % (self.path, self.caseName) 
+
+    def saveTrace(self, case_timestamp, trace):
+        self.loadTraces()
+        raise NotImplementedError
+        pass
+
+    def loadTraces(self):
+        try:
+            with open( self.traceFilename() ) as json_data:
+                self.loadedTraces = json.load(json_data)
+            try:
+                self.log.debug("FOUND in DB! %s" % self.loadedTraces)
+                return True
+            except:
+                self.log.debug("Not found in DB %s agains %s" % (ts, self.loadedDelays.keys()))
+                return False
+            # return ts in self.loadedDelays.keys()
+
+            # found = False
+            # for d in self.loadedDelays:
+            #     if not found and d['timestamp'] == ts:
+            #         found = True
+            #     elif found and d['timestamp'] == ts:
+            #         raise ValueError("Hum... timestamp %s exists twice. Why?" % ts)
+
+            return found
+
+        except IOError as e:
+
+            if "No such file or directory" in e:
+                self.log.debug("File %s don't exists. Good, continue." % self.delayFilename(a, b))
+                return False
+            else:
+                # Hey! Unhandled error
+                raise IOError(e)
+
+        raise ValueError("Why here?")
+
+
+
+    # def delayFilenameCombined(self, a, b):
+        # return "%s/edges-ALL-%s-%s.json" % (self.path, a, b) 
+
+
 class DelaysFileDB:
     def __init__(self, caseName, path):
         self.log = logging.getLogger( "%s" % ( str(self.__class__) ) )

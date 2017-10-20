@@ -8,8 +8,8 @@ from src.models.AlmaClasses import *
 
 THRESHOLD = 0.05
 
-# for case in [ "CaseAntennaInArray", "CaseRadioSetup", "CaseAntennaObserving" ]:
-for case in [ "CaseAntennaInArray"]:
+for case in [ "CaseAntennaInArray", "CaseRadioSetup", "CaseAntennaObserving" ]:
+# for case in [ "CaseAntennaInArray"]:
 
     db = DelaysFileDB( caseName=case, path=config.FILEPATH_DB+"/delays")  
     # db = DelaysFileDB( caseName="CaseRadioSetup", path=config.FILEPATH_DB+"/delays")  
