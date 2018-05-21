@@ -45,16 +45,28 @@ class CaseDelayDetector(CaseManagerBase):
 
     def processingEngines(self):
         # return [ DelaysDetectorEngine(parent=self, path=config.FILEPATH_DB+"/delays") ]
+        # return [ 
+        #     DelaysDetectorEngine(
+        #         parent=self, 
+        #         db=DelaysFileDB( 
+        #             caseName=self.myName, 
+        #             path=config.FILEPATH_DB+"/delays"
+        #         )
+        #     ) 
+        # ]
         return [ 
             DelaysDetectorEngine(
                 parent=self, 
+                enabled=True,
                 db=DelaysFileDB( 
                     caseName=self.myName, 
                     path=config.FILEPATH_DB+"/delays"
                 )
             ) ,
+            TraceStoreEngine(parent=self, enabled=True, db=NullEngineDB()), 
             TraceStoreEngine(
                 parent=self,
+                enabled=False,
                 db=TraceFileDB( 
                     caseName=self.myName, 
                     path=config.FILEPATH_DB+"/traces"
@@ -66,8 +78,8 @@ class CaseDelayDetector(CaseManagerBase):
 
 # Move elsewhere than ALMA.
 class TraceStoreEngine(CaseProcessingEngineBase):
-    def __init__(self, parent=None, db=None):
-        CaseProcessingEngineBase.__init__(self, parent)
+    def __init__(self, parent=None, db=None, enabled=True):
+        CaseProcessingEngineBase.__init__(self, parent, enabled)
         self.db = db
 
     def streamProcess(self, ts, activity):
@@ -75,7 +87,12 @@ class TraceStoreEngine(CaseProcessingEngineBase):
 
     def postProcess(self):
         trace = [ a[1] for a in self.parent.history ]
-        self.log.info("Trace: %s" % trace[:50])
+
+        if len(trace) > 50:
+            post = [ "(%s more...)" % (len(trace)-50) ]
+        else:
+            post = []
+        self.log.info("Trace: %s" % (trace[:50] + post))
         case_timestamp = self.parent.history[0][0]
 
         self.log.debug("Saving to DB")
@@ -89,8 +106,8 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
 
     # TODO: update with self.db
     # def __init__(self, parent, path):
-    def __init__(self, parent=None, db=None):
-        CaseProcessingEngineBase.__init__(self, parent)
+    def __init__(self, parent=None, db=None, enabled=True):
+        CaseProcessingEngineBase.__init__(self, parent, enabled)
         self.db = db
         self.count = {}
         self.lastTimeOf = {}
@@ -128,6 +145,7 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
             pairs = pairs + pairs_for_freq
             self.log.debug("For cluster freq=%s, I found %s pairs" % (freq, len(pairs_for_freq)))
 
+        # now pairs contains the merge of all combinations within the same cluster (colors with same frequency)
         for a, b in pairs:
             case_timestamp = self.parent.history[0][0]
 
@@ -136,19 +154,19 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
             if not self.loadDelays(a, b, case_timestamp):
                 try:
                     delays = self.computeDelays( a, b )
-                    self.log.debug("delays(C%s, C%s) = %s" % (a, b, delays))
+                    self.log.debug("delays({%s}, {%s}) = %s" % (a, b, delays))
 
                     self.saveDelays(a, b,  case_timestamp, delays)
                     # self.db.add(a, b, case_timestamp, delays)
-                    self.log.debug("(C%s, C%s) stored in DB" %(a, b) )
+                    self.log.debug("({%s}, {%s}) stored in DB" %(a, b) )
 
                     total_delays = total_delays + len(delays)
                 except ValueError as e:
-                    self.log.debug("delays(C%s, C%s) discarded. ValueError: %s" % (a, b, e))
+                    self.log.info("delays({%s}, {%s}) discarded. ValueError: %s" % (a, b, e))
             else:
                 # total_delays = total_delays + countFromDB
                 total_delays = total_delays + len(self.loadedDelays[str(case_timestamp)])
-                self.log.debug("(C%s, C%s) already computed. Not counting delays again." %(a, b) )
+                self.log.debug("({%s}, {%s}) already computed. Not counting delays again." %(a, b) )
 
         self.log.info("Found %s total pairs with %s combined delays" % (len(pairs) , total_delays))
 
@@ -156,12 +174,19 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
 
     # TODO: remove from here
     def saveDelays(self, a, b, ts, delays):
-        # self.loadedDelays.append( { 'timestamp': ts, 'delays': delays } )
+        if ts in self.loadedDelays.keys():
+            raise ValueError("TS=%s was already stored. You shouldn't save again")
+            sys.exit()
+
         self.loadedDelays[ts] = delays
-        self.log.debug( self.loadedDelays )
+        #self.log.debug( self.loadedDelays )
+
+        # Save [ { timestamp1 : [delay1, delay2, ...], timestamp2 : [delay3, ...] } ]
         with open(self.delayFilename(a, b), 'w') as outfile:
             json.dump(self.loadedDelays, outfile)
 
+
+        # Save [ delay1, delay2, delay3, ... ]
         combinedData = []
         for t, d in self.loadedDelays.iteritems():
             combinedData = combinedData + d
@@ -183,7 +208,7 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
                 self.log.debug("FOUND in DB! %s" % self.loadedDelays[str(ts)])
                 return True
             except:
-                self.log.debug("Not found in DB %s agains %s" % (ts, self.loadedDelays.keys()))
+                self.log.debug("Not found in DB %s against %s" % (ts, self.loadedDelays.keys()))
                 return False
             # return ts in self.loadedDelays.keys()
 
@@ -229,11 +254,11 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
                 a, b = val, tail[j]
                 if self.firstTimeOf[a] < self.firstTimeOf[b]:
                     # Checks A B
-                    self.log.debug("Which is first in (C%s, C%s) : (C%s, C%s) found." % (a, b, a, b))
+                    self.log.debug("Which is first in ({%s}, {%s}) : ({%s}, {%s}) found." % (a, b, a, b))
                     pairs.append( (a, b) )
                 else:
                     # Now checks B A
-                    self.log.debug("Which is first in (C%s, C%s) : (C%s, C%s) found." % (a, b, b, a))
+                    self.log.debug("Which is first in ({%s}, {%s}) : ({%s}, {%s}) found." % (a, b, b, a))
                     pairs.append( (b, a) )
         return pairs
 
@@ -248,16 +273,14 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
             else:
                 self.uniques[freq].append(activity)
 
-        # Remove freq < 2
+        # Remove freq < 2, what means that there is only one color in such cluster.
         for freq in self.uniques.keys():
             if len(self.uniques[freq]) < 2:
                 del(self.uniques[freq])
                 self.log.debug("removing freq=%s" % freq)
 
-        # Manually removing freq == 1
-        # if 1 in self.uniques.keys():
-        #     del(self.uniques[1])
-        self.log.info("Found %s clusters among %s symbols, with freqs=%s" % (len(self.uniques), len(self.lastTimeOf), self.uniques.keys()))
+        freq_count = "; ".join([ "|freq(%s)|=%s" % (k, len(v)) for k, v in self.uniques.iteritems() ])
+        self.log.info("Found %s clusters among %s symbols, with %s" % (len(self.uniques), len(self.lastTimeOf), freq_count ))
 
     def computeDelays( self, a, b ):
         """
@@ -307,7 +330,7 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
     def printTopColors(self, num):
         col = []
         for w in sorted(self.count, key=self.count.get, reverse=True)[:num]:
-          col.append( "C%s(%s)"% (w, self.count[w]))
+          col.append( "{%s}(%s)"% (w, self.count[w]))
         return " ".join(col)
 
 
@@ -318,6 +341,14 @@ class DelaysDetectorEngine(CaseProcessingEngineBase):
 # Move elsewhere
 import json
 import glob
+
+class NullEngineDB:
+    def __init__(self, caseName=None, path=None):
+        self.log = logging.getLogger( "%s" % ( str(self.__class__) ) )
+
+    def saveTrace(self, case_timestamp, trace):
+        self.log.debug(".. not saving! I'm a NullEngineDB")
+        return
 
 
 class TraceFileDB:
@@ -407,6 +438,7 @@ class DelaysFileDB:
         else:
             raise NotImplementedError
 
+    # Read from file. The format is [ { timestamp : [delays], ... } ]
     def getPair(self, a, b):
         try:
             with open( self.delayFilename(a, b) ) as json_data:
@@ -600,14 +632,18 @@ class LR_AlmaContainerFile(LogReaderBase):
         txt = self.buffer[24:].strip()
 
         # Version for Python 2.7
-        T = (str(self.buffer) + "00000000000000000000000")[0:23]
-        T = T[0:4]+"-"+T[5:7]+"-"+T[8:10]+"T"+T[11:13]+":"+T[14:16]+":"+T[17:19]+"."+T[20:23]
-        milliseconds = int( mktime( strptime(T[0:19], "%Y-%m-%dT%H:%M:%S") )*1000 + int(T[20:23]) )
+        # T = (str(self.buffer) + "00000000000000000000000000000000000000000")[0:23]
+        # T = T[0:4]+"-"+T[5:7]+"-"+T[8:10]+"T"+T[11:13]+":"+T[14:16]+":"+T[17:19]+"."+T[20:23]
+        # milliseconds = int( mktime( strptime(T[0:19], "%Y-%m-%dT%H:%M:%S") )*1000 + int(T[20:23]) )
+
+        timestring = (str(self.buffer) + "00000000000000000000000000000000000000000")[0:23]
 
         # milliseconds = int(1000*datetime.datetime( int(T[0:4]) , int(T[5:7]), int(T[8:10]), int(T[11:13]), int(T[14:16]), int(T[17:19]), int(T[20:23])*1000).timestamp())
 
         self._size = self._size + 1
-        return milliseconds, txt
+
+        return timestring, txt
+        # return milliseconds, txt
 
 
     def _startReadingLines(self):

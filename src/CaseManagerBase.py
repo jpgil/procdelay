@@ -101,7 +101,8 @@ class CaseManagerBase:
             self.uniques[activity] = self.uniques[activity] + 1
         self.isFirstEvent = False
         for engine in self._processingEngines:
-            engine.streamProcess(ts, activity)
+            if engine.isEnabled:
+                engine.streamProcess(ts, activity)
 
     def getTotalEvents(self):
         return len(self.history)
@@ -113,7 +114,8 @@ class CaseManagerBase:
         # Do whatever you need to do here
         # For example... count the delays and send to PairsDB
         for engine in self._processingEngines:
-            engine.postProcess()
+            if engine.isEnabled:
+                engine.postProcess()
 
     def stats(self):
         return {
@@ -131,7 +133,7 @@ class CaseManagerBase:
             gentleTrace = " ".join(gentle) + " ...(%s more)" % ( len(stats["TRACE"])-len(gentle) )
         returnTxt = "EVENTS=%s UNIQUES=%s " % (stats["TOTAL_EVENTS"], len(stats["UNIQUE_ACTIVITIES"]) )
         
-        returnTxt = returnTxt + " ".join ([eng.worldStats() for eng in self._processingEngines])
+        returnTxt = returnTxt + " ".join ([eng.worldStats() for eng in self._processingEngines if eng.isEnabled] )
 
         # returnTxt = returnTxt + " TRACE=%s" % gentleTrace
 
@@ -142,7 +144,8 @@ class CaseManagerBase:
 
 # Move elsewhere
 class CaseProcessingEngineBase:
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, enabled=True):
+        self.isEnabled = enabled
         self.parent = parent
         self.myName =  str(self.__class__).split(".")[-1]
         self.log = logging.getLogger( "%s.%s" % (self.parent.myName, self.myName) )

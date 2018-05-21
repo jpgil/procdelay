@@ -1,0 +1,39 @@
+From procdelays/. create directory structure and then go to bash dir
+
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+mkdir -p data/raw/ANTENNA
+mkdir -p data/interim
+
+cd src/data/
+
+
+1. Download container logs:
+
+./download_raw_containers_logs.sh
+
+2. Strip some irrelevant logs. This will create the *_STRIPPED files.
+
+./antenna-container-removeLogs.sh 
+
+3. Go back and process one file to test how it works.
+
+# First remove everything:
+cd ../../
+rm -rf data/processed
+mkdir -p data/processed/delays/timestamp/
+
+# Now do the nice calculations
+
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+python src/examples/processBasicSetOfEvents.py --debug
+
+bash src/data/generate-cases-and-traces-for-one-container.txt 
+
+
+4. Now if you are happy, go with the real stuff:
+
+bash src/data/process-allAntennaContairnes.sh
+
+tail -f data/processed/AntennaCasesCounts.txt

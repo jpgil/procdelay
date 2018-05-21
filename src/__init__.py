@@ -7,5 +7,6 @@ from CaseManagerBase import *
 from PaletteBase import *
 import logging
 import config
+import sys
 
-logging.basicConfig( level=config.LOGLEVEL )
+logging.basicConfig(stream=sys.stdout, level=config.LOGLEVEL )
