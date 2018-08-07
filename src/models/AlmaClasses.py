@@ -466,6 +466,11 @@ class DelaysFileDB:
         un.sort()
         return un
 
+    def pair_names(self):
+        self._parse_directory_structure()
+        self._parse_instances_per_pair()
+        return self._pairs
+
     def total_pairs(self):
         self._parse_directory_structure()
         return len(self._pairs)
@@ -481,6 +486,7 @@ class DelaysFileDB:
     def delays_per_pair(self):
         self._parse_instances_per_pair()
         return self._delays_per_pair
+
 
     def _parse_directory_structure(self):
         if self._pairs is None:

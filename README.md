@@ -24,6 +24,10 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 jupyter-notebook --notebook-dir=notebooks
 ```
 
+Paper
+-----
+https://v2.overleaf.com/project/5af4b1eb97e21c26afd62240
+
 Project Organization
 ------------
 
