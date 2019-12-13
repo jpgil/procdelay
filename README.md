@@ -26,7 +26,9 @@ jupyter-notebook --notebook-dir=notebooks
 
 Paper
 -----
-https://v2.overleaf.com/project/5af4b1eb97e21c26afd62240
+* Notes on chapters: https://www.evernote.com/pub/jpgilcl/papertesisufro#st=p&n=7561d8ff-d4f2-4962-ab24-1cabbb53c6b9
+* Latex: https://v2.overleaf.com/project/5af4b1eb97e21c26afd62240
+
 
 Project Organization
 ------------
@@ -75,6 +77,12 @@ Project Organization
     │
     └── tox.ini            <- tox file with settings for running tox; see tox.testrun.org
 
+TODO
+----
+* Enable Makefile
+* Upgrade to Python 3.6
+* Enable requirements.txt
+* Notebook dir per chapter
 
 -------
 
